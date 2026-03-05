@@ -28,6 +28,23 @@ This works. But it's `O(n^2)`. For `n = 100,000` that's 10 billion operations. I
 
 You need something better.
 
+```mermaid
+graph LR
+    subgraph "Brute Force: O(n²)"
+        A["for i = 0 to n"] --> B["for j = i+1 to n"]
+        B --> C["check nums[i] + nums[j]"]
+    end
+    subgraph "Two Pointers: O(n)"
+        D["L → ← R"] --> E{"sum vs target?"}
+        E -->|too small| F["L++"]
+        E -->|too big| G["R--"]
+        E -->|equal| H["found!"]
+    end
+    A -.->|"sorted array?"| D
+    style D fill:#2d6,color:#fff
+    style H fill:#2d6,color:#fff
+```
+
 ---
 
 ## Before We Go Further: C++ Things You Need to Know
@@ -151,6 +168,21 @@ And if the target were `12`?
 - If the sum is too small, moving `L` right makes it bigger.
 - Each step eliminates an entire row/column of the pair search space.
 
+```mermaid
+flowchart TD
+    Start["left = 0, right = n-1"] --> Check{"left < right?"}
+    Check -->|No| NotFound["No pair found"]
+    Check -->|Yes| Sum["sum = nums[left] + nums[right]"]
+    Sum --> Compare{"sum vs target?"}
+    Compare -->|"sum == target"| Found["Return {left, right}"]
+    Compare -->|"sum < target"| MoveL["left++\n(need bigger sum)"]
+    Compare -->|"sum > target"| MoveR["right--\n(need smaller sum)"]
+    MoveL --> Check
+    MoveR --> Check
+    style Found fill:#2d6,color:#fff
+    style NotFound fill:#c33,color:#fff
+```
+
 Here's the code:
 
 ```cpp
@@ -216,6 +248,18 @@ The brute force tries all `n*(n-1)/2` pairs. Two pointers tries at most `n` step
 
 This is the core insight: **when the data has structure (sorted, partitioned, etc.), you can use that structure to skip large chunks of the search space.**
 
+The diagram below shows the pair search space as a matrix. Brute force checks every cell above the diagonal. Two pointers walks a single path from the top-right corner to the diagonal — at most `n` steps.
+
+```mermaid
+graph TD
+    subgraph "Search Space Elimination"
+        direction TB
+        A["All n×n pairs"] -->|"sorted array"| B["Only upper triangle\nn(n-1)/2 pairs"]
+        B -->|"two pointers"| C["Single diagonal path\n≤ n steps"]
+    end
+    style C fill:#2d6,color:#fff
+```
+
 ---
 
 ## Two Pointers: Variant 2 — Same Direction (The Slow-Fast Pattern)
@@ -232,6 +276,18 @@ Output: [1, 2, 3, 4, _, _, _]  → return 4
 ```
 
 The idea: use a **slow** pointer to track where the next unique element should go, and a **fast** pointer to scan through the array.
+
+```mermaid
+flowchart LR
+    subgraph "Slow-Fast Pointer Movement"
+        direction LR
+        S["slow\n(writer)"] -.->|"waits until\nnew unique value"| F["fast\n(reader)"]
+        F -->|"scans every\nelement"| END["end of array"]
+    end
+    subgraph "Result"
+        R1["unique elements | don't care"]
+    end
+```
 
 ```cpp
 int removeDuplicates(vector<int>& nums) {
@@ -328,6 +384,20 @@ Two pointers work when:
 4. **You can eliminate search space** by moving one pointer based on a comparison.
 
 If you see any of these signals, think two pointers.
+
+```mermaid
+flowchart TD
+    Q1{"Is the array sorted\nor can you sort it?"}
+    Q1 -->|Yes| Q2{"Searching for\npairs/triplets?"}
+    Q1 -->|No| Q3{"Need in-place\nmodification?"}
+    Q2 -->|Yes| TP1["Two Pointers\n(opposite ends)"]
+    Q2 -->|No| Q3
+    Q3 -->|Yes| TP2["Two Pointers\n(slow-fast)"]
+    Q3 -->|No| SW["Consider\nSliding Window"]
+    style TP1 fill:#2d6,color:#fff
+    style TP2 fill:#2d6,color:#fff
+    style SW fill:#36c,color:#fff
+```
 
 ---
 
@@ -429,6 +499,19 @@ These aren't pair-search problems. These are about finding an **optimal contiguo
 
 The sliding window is really just two pointers moving in the same direction, maintaining a "window" between them. But the *mental model* is different enough that it deserves its own treatment.
 
+```mermaid
+flowchart LR
+    subgraph "Two Pointers"
+        TP["L →→→ ←←← R\nConverge from\nopposite ends"]
+    end
+    subgraph "Sliding Window"
+        SW["L →→→  R →→→\nBoth move right,\nmaintaining a window"]
+    end
+    TP --- |"same core idea:\ntwo indices,\nintelligent movement"| SW
+    style TP fill:#f96,color:#fff
+    style SW fill:#36c,color:#fff
+```
+
 ---
 
 ## The Sliding Window Idea
@@ -454,6 +537,19 @@ The simplest variant: the window has a fixed size `k`, and you slide it across t
 Brute force: for each starting position, sum `k` elements. O(n*k).
 
 Sliding window insight: when you slide the window one step right, you **add** the new element entering from the right and **subtract** the element leaving from the left. You don't recompute the entire sum.
+
+```mermaid
+flowchart LR
+    subgraph "Step i"
+        A["[2, 1, 5] 1, 3, 2\nsum = 8"]
+    end
+    subgraph "Step i+1"
+        B["2, [1, 5, 1] 3, 2\nsum = 8 - 2 + 1 = 7"]
+    end
+    A -->|"−nums[left]\n+nums[right+1]"| B
+    style A fill:#36c,color:#fff
+    style B fill:#36c,color:#fff
+```
 
 ```cpp
 #include <iostream>
@@ -514,6 +610,22 @@ for right = 0 to n-1:
 ```
 
 Both `left` and `right` only move forward. Total work: O(n).
+
+```mermaid
+flowchart TD
+    Init["left = 0"] --> Loop{"right < n?"}
+    Loop -->|No| Done["Return answer"]
+    Loop -->|Yes| Expand["Add nums[right]\nto window state"]
+    Expand --> Contract{"Window\ninvalid?"}
+    Contract -->|Yes| Shrink["Remove nums[left]\nfrom window state\nleft++"]
+    Shrink --> Contract
+    Contract -->|No| Update["Update answer\n(max/min of window size)"]
+    Update --> Inc["right++"]
+    Inc --> Loop
+    style Expand fill:#36c,color:#fff
+    style Shrink fill:#c33,color:#fff
+    style Update fill:#2d6,color:#fff
+```
 
 ### Problem: Smallest Subarray with Sum >= Target
 
@@ -678,6 +790,21 @@ The approach:
 2. Expand the window to the right until we have everything.
 3. Contract from the left to find the minimum window.
 4. Repeat.
+
+```mermaid
+flowchart TD
+    subgraph "Minimum Window Substring Strategy"
+        Count["1. Build frequency map\nof target string t"] --> Expand["2. Expand right until\nall chars satisfied\n(formed == required)"]
+        Expand --> Shrink["3. Shrink left to find\nminimum valid window"]
+        Shrink --> Record["4. Record window if\nsmaller than best"]
+        Record --> Break["5. Shrink once more\n(breaks validity)"]
+        Break --> Expand
+    end
+    style Count fill:#555,color:#fff
+    style Expand fill:#36c,color:#fff
+    style Shrink fill:#f96,color:#fff
+    style Record fill:#2d6,color:#fff
+```
 
 ```cpp
 #include <iostream>
@@ -863,6 +990,18 @@ Sliding window requires one critical property: when you expand the window, the "
 
 If elements can be negative and you need the maximum subarray sum, you need **Kadane's algorithm** — not sliding window. Different technique, different day.
 
+```mermaid
+flowchart TD
+    Q{"All elements\nnon-negative?"}
+    Q -->|Yes| Mon["Monotonic property holds\n→ Sliding window works"]
+    Q -->|No| Neg["Expanding window can\ndecrease sum"]
+    Neg --> Broken["Monotonicity broken\n→ Can't decide when\nto shrink"]
+    Broken --> Alt["Use Kadane's algorithm\nor prefix sums instead"]
+    style Mon fill:#2d6,color:#fff
+    style Broken fill:#c33,color:#fff
+    style Alt fill:#f96,color:#fff
+```
+
 ---
 
 ## Recap: How to Recognize Each Pattern
@@ -908,6 +1047,32 @@ Once you can answer these four questions, the code writes itself.
 
 ---
 
+## The Big Picture: Choosing Your Technique
+
+```mermaid
+flowchart TD
+    Start["Problem involves\nan array or string"] --> Sorted{"Data is sorted\nor can be sorted?"}
+    Sorted -->|Yes| Pair{"Looking for pairs\nor triplets?"}
+    Sorted -->|No| Contig{"Need contiguous\nsubarray/substring?"}
+    Pair -->|Yes| OppTP["Two Pointers\n(opposite ends)"]
+    Pair -->|No| InPlace{"In-place\nmodification?"}
+    InPlace -->|Yes| SameTP["Two Pointers\n(slow-fast)"]
+    InPlace -->|No| Contig
+    Contig -->|Yes| Fixed{"Fixed window\nsize?"}
+    Contig -->|No| Other["Other technique\n(DP, binary search, etc.)"]
+    Fixed -->|Yes| FSW["Fixed Sliding Window"]
+    Fixed -->|No| Mono{"Monotonic property?\n(non-negative elements,\ncounts only increase)"}
+    Mono -->|Yes| VSW["Variable Sliding Window"]
+    Mono -->|No| Alt["Kadane's / Prefix Sums\n/ Deque-based"]
+    style OppTP fill:#2d6,color:#fff
+    style SameTP fill:#2d6,color:#fff
+    style FSW fill:#36c,color:#fff
+    style VSW fill:#36c,color:#fff
+    style Alt fill:#f96,color:#fff
+```
+
+---
+
 ## Final Thought
 
 Two pointers and sliding window are not really two separate techniques. They're the same idea: **maintain a range defined by two indices, and move them intelligently to avoid redundant work.** The difference is just in how and why the pointers move:
@@ -917,3 +1082,40 @@ Two pointers and sliding window are not really two separate techniques. They're 
 - **Sliding window:** Maintain a contiguous range that satisfies some property, expanding and contracting to find the optimum.
 
 Master the pattern, and you'll recognize it in problems that never mention "two pointers" or "sliding window" by name. That's the real skill — not memorizing solutions, but seeing the structure underneath the problem.
+
+---
+
+## BOJ Practice Problems
+
+Standard, well-known problems on Baekjoon Online Judge. Ordered roughly by difficulty — start from the top and work your way down.
+
+### Two Pointers
+
+| # | Problem | Tier | What You'll Practice |
+|---|---------|------|---------------------|
+| 1 | [3273 - 두 수의 합](https://www.acmicpc.net/problem/3273) | Silver III | Classic two-sum on a sorted array. The purest form of opposite-end two pointers. |
+| 2 | [2470 - 두 용액](https://www.acmicpc.net/problem/2470) | Gold V | Find two values whose sum is closest to zero. Two pointers with a "closest" twist. |
+| 3 | [2467 - 용액](https://www.acmicpc.net/problem/2467) | Gold V | Same idea as 2470 but the array is already sorted. Focus on the pointer logic. |
+| 4 | [2003 - 수들의 합 2](https://www.acmicpc.net/problem/2003) | Silver IV | Count subarrays with a given sum. Bridge between two pointers and sliding window. |
+| 5 | [1940 - 주몽](https://www.acmicpc.net/problem/1940) | Silver IV | Find pairs that sum to a target. Sort + two pointers in a story-based setting. |
+| 6 | [1806 - 부분합](https://www.acmicpc.net/problem/1806) | Gold IV | Shortest subarray with sum >= S. The classic variable-size sliding window problem. |
+| 7 | [2230 - 수 고르기](https://www.acmicpc.net/problem/2230) | Gold V | Find two numbers with difference >= M, minimizing the difference. Sort + two pointers. |
+
+### Sliding Window
+
+| # | Problem | Tier | What You'll Practice |
+|---|---------|------|---------------------|
+| 8 | [21921 - 블로그](https://www.acmicpc.net/problem/21921) | Silver III | Maximum sum of fixed-size window. Perfect first sliding window problem. |
+| 9 | [12891 - DNA 비밀번호](https://www.acmicpc.net/problem/12891) | Silver II | Fixed-size window with character frequency conditions. |
+| 10 | [2531 - 회전 초밥](https://www.acmicpc.net/problem/2531) | Silver I | Fixed-size sliding window on a circular array. Count distinct elements. |
+| 11 | [11003 - 최솟값 찾기](https://www.acmicpc.net/problem/11003) | Platinum V | Sliding window minimum using a deque. A step up in difficulty — teaches the monotonic deque technique. |
+| 12 | [20437 - 문자열 게임 2](https://www.acmicpc.net/problem/20437) | Gold V | Find shortest/longest substrings containing exactly K of a specific character. |
+| 13 | [1644 - 소수의 연속합](https://www.acmicpc.net/problem/1644) | Gold III | Generate primes with a sieve, then sliding window on the prime sequence. Combines two techniques. |
+
+### Combined / Harder
+
+| # | Problem | Tier | What You'll Practice |
+|---|---------|------|---------------------|
+| 14 | [13144 - List of Unique Numbers](https://www.acmicpc.net/problem/13144) | Gold IV | Count all subarrays with no duplicate elements. Variable window + counting trick. |
+| 15 | [22862 - 가장 긴 짝수 연속한 부분 수열 (large)](https://www.acmicpc.net/problem/22862) | Gold V | Longest subarray of even numbers if you can remove up to K odds. Reframe as sliding window with at most K violations — same pattern as "Max Consecutive Ones III". |
+| 16 | [2842 - 집배원 한상덕](https://www.acmicpc.net/problem/2842) | Platinum IV | Sort altitude values + two pointers to find minimum altitude range. Combines BFS with two pointers — a challenging capstone problem. |
